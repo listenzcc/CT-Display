@@ -1,8 +1,8 @@
 '''
-FileName: cubes.py
+FileName: Display.py
 Author: Chuncheng
 Version: V0.0
-Purpose: Plot cubes
+Purpose: Display CT-data
 '''
 
 # %%
@@ -13,38 +13,17 @@ from OpenGL.arrays import vbo
 
 from myOpenGLWorld import World, logger
 
-from mk_cubes import vertices, indices
+from mk_vertex import vertices, indices
 import numpy as np
 
 
 # %%
 world = World()
 
-
-# # VBO Setting
-# vertices = np.array([
-#     -1, 1, 1,
-#     1, 1, 1,
-#     1, -1, 1,
-#     -1, -1, 1,
-#     -1, 1, -1,
-#     1, 1, -1,
-#     1, -1, -1,
-#     -1, -1, -1
-# ], dtype=np.float32) * 0.2
-
-# indices = np.array([
-#     0, 3, 2, 1,  # front
-#     4, 5, 6, 7,  # back
-#     0, 1, 5, 4,  # up
-#     2, 3, 7, 6,  # bottom
-#     0, 4, 7, 3,  # left
-#     1, 2, 6, 5,  # right
-# ], dtype=np.int32)
-
 vbo_vertices = vbo.VBO(vertices)
 vbo_vertices.bind()
-glInterleavedArrays(GL_V3F, 0, None)
+
+glInterleavedArrays(GL_C3F_V3F, 0, None)
 
 vbo_indices = vbo.VBO(indices, target=GL_ELEMENT_ARRAY_BUFFER)
 vbo_indices.bind()
