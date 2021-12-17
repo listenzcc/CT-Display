@@ -19,27 +19,37 @@ import numpy as np
 # %%
 world = World()
 
-# Create window to enable the glGenBuffers() function
+# ------------------------------------------------------
+'''
+# The cube looks like
+#    v4------v5
+#   /|      /|
+#  v0------v1|
+#  | |     | |
+#  | v7----|-v6
+#  |/      |/
+#  v3------v2
+'''
 
 # VBO Setting
 vertices = np.array([
-    -0.5, 0.5, 0.5,
-    0.5, 0.5, 0.5,
-    0.5, -0.5, 0.5,
-    -0.5, -0.5, 0.5,
-    -0.5, 0.5, -0.5,
-    0.5, 0.5, -0.5,
-    0.5, -0.5, -0.5,
-    -0.5, -0.5, -0.5
-], dtype=np.float32) * 0.5
+    -1, 1, 1,
+    1, 1, 1,
+    1, -1, 1,
+    -1, -1, 1,
+    -1, 1, -1,
+    1, 1, -1,
+    1, -1, -1,
+    -1, -1, -1
+], dtype=np.float32) * 0.2
 
 indices = np.array([
-    0, 1, 2, 3,  # v0-v1-v2-v3 (front)
-    4, 5, 1, 0,  # v4-v5-v1-v0 (top)
-    3, 2, 6, 7,  # v3-v2-v6-v7 (bottom)
-    5, 4, 7, 6,  # v5-v4-v7-v6 (back)
-    1, 5, 6, 2,  # v1-v5-v6-v2 (right)
-    4, 0, 3, 7  # v4-v0-v3-v7 (left)
+    0, 3, 2, 1,  # front
+    4, 5, 6, 7,  # back
+    0, 1, 5, 4,  # up
+    2, 3, 7, 6,  # bottom
+    0, 4, 7, 3,  # left
+    1, 2, 6, 5,  # right
 ], dtype=np.int32)
 
 vbo_vertices = vbo.VBO(vertices)
@@ -62,6 +72,7 @@ def draw():
     WIN_W = world.WIN_W
     WIN_H = world.WIN_H
 
+    # Clear latest display buffers
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
     # Projection mode
@@ -102,7 +113,7 @@ def draw():
     glViewport(0, 0, WIN_W, WIN_H)
 
     # ---- VBO object -----------------------------------------------------
-    glColor4f(1.0, 1.0, 1.0, 0.3)
+    glColor4f(1.0, 1.0, 1.0, 0.8)
     glDrawElements(GL_QUADS, int(vbo_indices .size/4), GL_UNSIGNED_INT, None)
 
     # ---- Axes -----------------------------------------------------------
