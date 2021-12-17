@@ -103,7 +103,7 @@ def draw():
     glViewport(0, 0, WIN_W, WIN_H)
 
     # ---- VBO object -----------------------------------------------------
-    glColor4f(1.0, 1.0, 1.0, 0.8)
+    glColor4f(0.5, 1.0, 1.0, 0.8)
     glDrawElements(GL_QUADS, int(vbo_indices .size/4), GL_UNSIGNED_INT, None)
 
     # ---- Axes -----------------------------------------------------------

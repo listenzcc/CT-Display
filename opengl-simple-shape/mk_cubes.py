@@ -41,7 +41,7 @@ cube_indices = np.array([
 ], dtype=np.int32)
 
 # %%
-xs, ys, zs = 5, 5, 1
+xs, ys, zs = 5, 5, 5
 # %%
 
 vertices_list = []
@@ -58,7 +58,7 @@ for x in tqdm(range(xs)):
 
         for z in range(zs):
             xyz = np.array([x, y, z], dtype=np.float32)
-            ver = cube_vertices * 0.3 + xyz * 1
+            ver = cube_vertices * 0.1 + xyz * 1
             ind = cube_indices + idx
             # vertices_list.append(ver)
             # indices_list.append(ind)
