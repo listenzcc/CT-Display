@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # -------------------------------------------
-# quidam_02.py 旋转、缩放、改变视点和参考点
+# Combine VBO and GL-objects
 # -------------------------------------------
 from OpenGL.GL import *
 from OpenGL.GLU import *
@@ -8,10 +8,11 @@ from OpenGL.GLUT import *
 from OpenGL.arrays import vbo
 import numpy as np
 
-
+# Create window to enable the glGenBuffers() function
 glutInit()
 glutCreateWindow(b'Example 3')
 
+# VBO Setting
 vertices = np.array([
     -0.5, 0.5, 0.5,
     0.5, 0.5, 0.5,
@@ -23,8 +24,6 @@ vertices = np.array([
     -0.5, -0.5, -0.5
 ], dtype=np.float32) * 0.5
 
-# 索引集
-
 indices = np.array([
     0, 1, 2, 3,  # v0-v1-v2-v3 (front)
     4, 5, 1, 0,  # v4-v5-v1-v0 (top)
@@ -32,7 +31,7 @@ indices = np.array([
     5, 4, 7, 6,  # v5-v4-v7-v6 (back)
     1, 5, 6, 2,  # v1-v5-v6-v2 (right)
     4, 0, 3, 7  # v4-v0-v3-v7 (left)
-], dtype=np.int)
+], dtype=np.int32)
 
 vbo_vertices = vbo.VBO(vertices)
 vbo_vertices.bind()
@@ -40,365 +39,257 @@ glInterleavedArrays(GL_V3F, 0, None)
 
 vbo_indices = vbo.VBO(indices, target=GL_ELEMENT_ARRAY_BUFFER)
 vbo_indices.bind()
-IS_PERSPECTIVE = True                               # 透视投影
 
-# 视景体的left/right/bottom/top/near/far六个面
+# Display Setting
+IS_PERSPECTIVE = True
+
+EYE = np.array([0.0, 0.0, 2.0])
 VIEW = np.array([-0.8, 0.8, -0.8, 0.8, 1.0, 20.0])
+LOOK_AT = np.array([0.0, 0.0, 0.0])
+EYE_UP = np.array([0.0, 1.0, 0.0])
+SCALE_K = np.array([1.0, 1.0, 1.0])
 
-SCALE_K = np.array([1.0, 1.0, 1.0])                 # 模型缩放比例
+MOUSE_X, MOUSE_Y = 0, 0
 
-EYE = np.array([0.0, 0.0, 2.0])                     # 眼睛的位置（默认z轴的正方向）
-
-LOOK_AT = np.array([0.0, 0.0, 0.0])                 # 瞄准方向的参考点（默认在坐标原点）
-
-EYE_UP = np.array([0.0, 1.0, 0.0])                  # 定义对观察者而言的上方（默认y轴的正方向）
-
-WIN_W, WIN_H = 640, 480                             # 保存窗口宽度和高度的变量
-
-LEFT_IS_DOWNED = False                              # 鼠标左键被按下
-
-MOUSE_X, MOUSE_Y = 0, 0                             # 考察鼠标位移量时保存的起始位置
+WIN_W, WIN_H = 800, 600
+LEFT_IS_DOWNED = False
 
 
 def getposture():
-
     global EYE, LOOK_AT
-
     dist = np.sqrt(np.power((EYE-LOOK_AT), 2).sum())
-
     if dist > 0:
-
         phi = np.arcsin((EYE[1]-LOOK_AT[1])/dist)
-
         theta = np.arcsin((EYE[0]-LOOK_AT[0])/(dist*np.cos(phi)))
-
     else:
-
         phi = 0.0
-
         theta = 0.0
-
     return dist, phi, theta
 
 
-DIST, PHI, THETA = getposture()                     # 眼睛与观察目标之间的距离、仰角、方位角
+DIST, PHI, THETA = getposture()
 
 
 def init():
+    glClearColor(0.0, 0.0, 0.0, 1.0)
 
-    glClearColor(0.0, 0.0, 0.0, 1.0)  # 设置画布背景色。注意：这里必须是4个参数
-
-    glEnable(GL_DEPTH_TEST)          # 开启深度测试，实现遮挡关系
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
     glEnable(GL_BLEND)
 
-    glDepthFunc(GL_LESS)           # 设置深度测试函数（GL_LEQUAL只是选项之一）
+    glEnable(GL_DEPTH_TEST)
+    glDepthFunc(GL_LESS)
+    glDepthMask(GL_TRUE)
+
+    # glEnable(GL_CULL_FACE)
+    glDisable(GL_MULTISAMPLE)
 
 
 def draw():
-
     global IS_PERSPECTIVE, VIEW
-
     global EYE, LOOK_AT, EYE_UP
-
     global SCALE_K
-
     global WIN_W, WIN_H
-
-    # 清除屏幕及深度缓存
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
-    # 设置投影（透视投影）
-
+    # Projection mode
     glMatrixMode(GL_PROJECTION)
-
     glLoadIdentity()
 
     if WIN_W > WIN_H:
-
         if IS_PERSPECTIVE:
-
-            glFrustum(VIEW[0]*WIN_W/WIN_H, VIEW[1]*WIN_W /
-                      WIN_H, VIEW[2], VIEW[3], VIEW[4], VIEW[5])
-
+            glFrustum(VIEW[0] * WIN_W / WIN_H,
+                      VIEW[1] * WIN_W / WIN_H,
+                      VIEW[2], VIEW[3], VIEW[4], VIEW[5])
         else:
-
-            glOrtho(VIEW[0]*WIN_W/WIN_H, VIEW[1]*WIN_W /
-                    WIN_H, VIEW[2], VIEW[3], VIEW[4], VIEW[5])
-
+            glOrtho(VIEW[0] * WIN_W / WIN_H,
+                    VIEW[1] * WIN_W / WIN_H,
+                    VIEW[2], VIEW[3], VIEW[4], VIEW[5])
     else:
-
         if IS_PERSPECTIVE:
-
-            glFrustum(VIEW[0], VIEW[1], VIEW[2]*WIN_H/WIN_W,
-                      VIEW[3]*WIN_H/WIN_W, VIEW[4], VIEW[5])
-
+            glFrustum(VIEW[0], VIEW[1],
+                      VIEW[2] * WIN_H / WIN_W,
+                      VIEW[3] * WIN_H / WIN_W,
+                      VIEW[4], VIEW[5])
         else:
+            glOrtho(VIEW[0], VIEW[1],
+                    VIEW[2] * WIN_H / WIN_W,
+                    VIEW[3] * WIN_H / WIN_W,
+                    VIEW[4], VIEW[5])
 
-            glOrtho(VIEW[0], VIEW[1], VIEW[2]*WIN_H/WIN_W,
-                    VIEW[3]*WIN_H/WIN_W, VIEW[4], VIEW[5])
-
-    # 设置模型视图
-
+    # View mode
     glMatrixMode(GL_MODELVIEW)
-
     glLoadIdentity()
 
-    # 几何变换
-
-    glScale(SCALE_K[0], SCALE_K[1], SCALE_K[2])
-
-    # 设置视点
-
     gluLookAt(
-
-        EYE[0], EYE[1], EYE[2],
-
+        EYE[0] * SCALE_K[0], EYE[1] * SCALE_K[1], EYE[2] * SCALE_K[2],
         LOOK_AT[0], LOOK_AT[1], LOOK_AT[2],
-
         EYE_UP[0], EYE_UP[1], EYE_UP[2]
-
     )
-
-    # 设置视口
 
     glViewport(0, 0, WIN_W, WIN_H)
 
-    # ---------------------------------------------------------------
-    glBegin(GL_LINES)                    # 开始绘制线段（世界坐标系）
-    # 以红色绘制x轴
-
-    glColor4f(1.0, 0.0, 0.0, 1.0)        # 设置当前颜色为红色不透明
-
-    glVertex3f(-0.8, 0.0, 0.0)           # 设置x轴顶点（x轴负方向）
-
-    glVertex3f(0.8, 0.0, 0.0)            # 设置x轴顶点（x轴正方向）
-
-    # 以绿色绘制y轴
-
-    glColor4f(0.0, 1.0, 0.0, 1.0)        # 设置当前颜色为绿色不透明
-
-    glVertex3f(0.0, -0.8, 0.0)           # 设置y轴顶点（y轴负方向）
-
-    glVertex3f(0.0, 0.8, 0.0)            # 设置y轴顶点（y轴正方向）
-
-    # 以蓝色绘制z轴
-
-    glColor4f(0.0, 0.0, 1.0, 1.0)        # 设置当前颜色为蓝色不透明
-
-    glVertex3f(0.0, 0.0, -0.8)           # 设置z轴顶点（z轴负方向）
-
-    glVertex3f(0.0, 0.0, 0.8)            # 设置z轴顶点（z轴正方向）
-
-    glEnd()                              # 结束绘制线段
-    # ---------------------------------------------------------------
-    glBegin(GL_TRIANGLES)                # 开始绘制三角形（z轴负半区）
-
-    glColor4f(1.0, 0.0, 0.0, 1.0)        # 设置当前颜色为红色不透明
-
-    glVertex3f(-0.5, -0.366, -0.5)       # 设置三角形顶点
-
-    glColor4f(0.0, 1.0, 0.0, 1.0)        # 设置当前颜色为绿色不透明
-
-    glVertex3f(0.5, -0.366, -0.5)        # 设置三角形顶点
-
-    glColor4f(0.0, 0.0, 1.0, 1.0)        # 设置当前颜色为蓝色不透明
-
-    glVertex3f(0.0, 0.5, -0.5)           # 设置三角形顶点
-
-    glEnd()                              # 结束绘制三角形
-    # ---------------------------------------------------------------
-    glBegin(GL_TRIANGLES)                # 开始绘制三角形（z轴正半区）
-    glColor4f(1.0, 0.0, 0.0, 0.2)        # 设置当前颜色为红色不透明
-
-    glVertex3f(-0.5, 0.5, 0.5)           # 设置三角形顶点
-
-    glColor4f(0.0, 1.0, 0.0, 1.0)        # 设置当前颜色为绿色不透明
-
-    glVertex3f(0.5, 0.5, 0.5)            # 设置三角形顶点
-
-    glColor4f(0.0, 0.0, 1.0, 1.0)        # 设置当前颜色为蓝色不透明
-
-    glVertex3f(0.0, -0.366, 0.5)         # 设置三角形顶点
-
-    glEnd()                              # 结束绘制三角形
-
-    # ---------------------------------------------------------------
-
+    # ---- VBO object -----------------------------------------------------
     glColor4f(1.0, 1.0, 1.0, 0.3)
     glDrawElements(GL_QUADS, int(vbo_indices .size/4), GL_UNSIGNED_INT, None)
 
-    glutSwapBuffers()                    # 切换缓冲区，以显示绘制内容
+    # ---- Axes -----------------------------------------------------------
+    glBegin(GL_LINES)
+    glColor4f(1.0, 0.0, 0.0, 1.0)
+    glVertex3f(-0.8, 0.0, 0.0)
+    glVertex3f(0.8, 0.0, 0.0)
+
+    glColor4f(0.0, 1.0, 0.0, 1.0)
+    glVertex3f(0.0, -0.8, 0.0)
+    glVertex3f(0.0, 0.8, 0.0)
+
+    glColor4f(0.0, 0.0, 1.0, 1.0)
+    glVertex3f(0.0, 0.0, -0.8)
+    glVertex3f(0.0, 0.0, 0.8)
+    glEnd()
+
+    # ---- Triangle 1 -----------------------------------------------------------
+    glBegin(GL_TRIANGLES)
+    glColor4f(1.0, 0.0, 0.0, 1.0)
+    glVertex3f(-0.5, -0.366, -0.5)
+
+    glColor4f(0.0, 1.0, 0.0, 1.0)
+    glVertex3f(0.5, -0.366, -0.5)
+
+    glColor4f(0.0, 0.0, 1.0, 1.0)
+    glVertex3f(0.0, 0.5, -0.5)
+    glEnd()
+
+    # ---- Triangle 2 -----------------------------------------------------------
+    glBegin(GL_TRIANGLES)
+    glColor4f(1.0, 0.0, 0.0, 0.5)
+    glVertex3f(-0.5, 0.5, 0.5)
+
+    glColor4f(0.0, 1.0, 0.0, 0.5)
+    glVertex3f(0.5, 0.5, 0.5)
+
+    glColor4f(0.0, 0.0, 1.0, 0.5)
+    glVertex3f(0.0, -0.366, 0.5)
+    glEnd()
+
+    # ---- Flush the display-----------------------------------------------------------
+    glutSwapBuffers()
 
 
 def reshape(width, height):
-
     global WIN_W, WIN_H
-
     WIN_W, WIN_H = width, height
-
     glutPostRedisplay()
 
 
 def mouseclick(button, state, x, y):
-
     global SCALE_K
-
     global LEFT_IS_DOWNED
-
     global MOUSE_X, MOUSE_Y
 
     MOUSE_X, MOUSE_Y = x, y
-
     if button == GLUT_LEFT_BUTTON:
-
         LEFT_IS_DOWNED = state == GLUT_DOWN
-
     elif button == 3:
-
-        SCALE_K *= 1.05
-
+        SCALE_K *= 0.9
+        print('Zoom In: {}'.format(SCALE_K))
         glutPostRedisplay()
 
     elif button == 4:
-
-        SCALE_K *= 0.95
-
+        SCALE_K *= 1.1
+        print('Zoom Out: {}'.format(SCALE_K))
         glutPostRedisplay()
 
 
 def mousemotion(x, y):
-
     global LEFT_IS_DOWNED
-
     global EYE, EYE_UP
-
     global MOUSE_X, MOUSE_Y
-
     global DIST, PHI, THETA
-
     global WIN_W, WIN_H
 
     if LEFT_IS_DOWNED:
-
         dx = MOUSE_X - x
-
         dy = y - MOUSE_Y
-
         MOUSE_X, MOUSE_Y = x, y
 
         PHI += 2*np.pi*dy/WIN_H
-
         PHI %= 2*np.pi
-
         THETA += 2*np.pi*dx/WIN_W
-
         THETA %= 2*np.pi
 
         r = DIST*np.cos(PHI)
-
         EYE[1] = DIST*np.sin(PHI)
-
         EYE[0] = r*np.sin(THETA)
-
         EYE[2] = r*np.cos(THETA)
 
         if 0.5*np.pi < PHI < 1.5*np.pi:
-
             EYE_UP[1] = -1.0
-
         else:
-
             EYE_UP[1] = 1.0
 
         glutPostRedisplay()
 
 
 def keydown(key, x, y):
-
     global DIST, PHI, THETA
-
     global EYE, LOOK_AT, EYE_UP
-
     global IS_PERSPECTIVE, VIEW
 
     if key in [b'x', b'X', b'y', b'Y', b'z', b'Z']:
-
-        if key == b'x':  # 瞄准参考点 x 减小
-
+        # Move along the x-, y-, z-axis
+        if key == b'x':
             LOOK_AT[0] -= 0.01
 
-        elif key == b'X':  # 瞄准参考 x 增大
-
+        elif key == b'X':
             LOOK_AT[0] += 0.01
 
-        elif key == b'y':  # 瞄准参考点 y 减小
-
+        elif key == b'y':
             LOOK_AT[1] -= 0.01
 
-        elif key == b'Y':  # 瞄准参考点 y 增大
-
+        elif key == b'Y':
             LOOK_AT[1] += 0.01
 
-        elif key == b'z':  # 瞄准参考点 z 减小
-
+        elif key == b'z':
             LOOK_AT[2] -= 0.01
 
-        elif key == b'Z':  # 瞄准参考点 z 增大
-
+        elif key == b'Z':
             LOOK_AT[2] += 0.01
 
         DIST, PHI, THETA = getposture()
 
         glutPostRedisplay()
 
-    elif key == b'\r':  # 回车键，视点前进
-
+    elif key == b'\r':
+        # Enter: Zoom In
         EYE = LOOK_AT + (EYE - LOOK_AT) * 0.9
-
         DIST, PHI, THETA = getposture()
-
         glutPostRedisplay()
 
-    elif key == b'\x08':  # 退格键，视点后退
-
+    elif key == b'\x08':
+        # Backspace: Zoom Out
         EYE = LOOK_AT + (EYE - LOOK_AT) * 1.1
-
         DIST, PHI, THETA = getposture()
-
         glutPostRedisplay()
 
-    elif key == b' ':  # 空格键，切换投影模式
-
+    elif key == b' ':
+        # Space: Toggle perspective mode
+        # It will also disable zoom function.
         IS_PERSPECTIVE = not IS_PERSPECTIVE
-
         glutPostRedisplay()
 
 
 if __name__ == "__main__":
-
-    # glutInit()
-    # glutCreateWindow(b'Quidam Of OpenGL')
-
     displayMode = GLUT_DOUBLE | GLUT_ALPHA | GLUT_DEPTH
-
     glutInitDisplayMode(displayMode)
-
     glutInitWindowSize(WIN_W, WIN_H)
-
     glutInitWindowPosition(300, 200)
 
-    init()                              # 初始化画布
+    init()
+    glutDisplayFunc(draw)
+    glutReshapeFunc(reshape)
+    glutMouseFunc(mouseclick)
+    glutMotionFunc(mousemotion)
+    glutKeyboardFunc(keydown)
 
-    glutDisplayFunc(draw)               # 注册回调函数draw()
-
-    glutReshapeFunc(reshape)            # 注册响应窗口改变的函数reshape()
-
-    glutMouseFunc(mouseclick)           # 注册响应鼠标点击的函数mouseclick()
-
-    glutMotionFunc(mousemotion)         # 注册响应鼠标拖拽的函数mousemotion()
-
-    glutKeyboardFunc(keydown)           # 注册键盘输入的函数keydown()
-
-    glutMainLoop()                      # 进入glut主循环
+    glutMainLoop()
