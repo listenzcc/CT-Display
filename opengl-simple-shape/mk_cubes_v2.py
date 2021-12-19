@@ -95,12 +95,12 @@ cube_indices = np.array([
     [0, 4, 7, 3],  # left
     [1, 2, 6, 5],  # right
 
-    8 + np.array([0, 3, 2, 1]),  # front
-    8 + np.array([4, 5, 6, 7]),  # back
-    8 + np.array([0, 1, 5, 4]),  # up
-    8 + np.array([2, 3, 7, 6]),  # bottom
-    8 + np.array([0, 4, 7, 3]),  # left
-    8 + np.array([1, 2, 6, 5]),  # right
+    8 + np.array([0, 1, 2, 3]),  # front
+    8 + np.array([4, 7, 6, 5]),  # back
+    8 + np.array([0, 4, 5, 1]),  # up
+    8 + np.array([2, 6, 7, 3]),  # bottom
+    8 + np.array([0, 3, 7, 4]),  # left
+    8 + np.array([1, 5, 6, 2]),  # right
 ], dtype=np.int32)
 
 # %%
