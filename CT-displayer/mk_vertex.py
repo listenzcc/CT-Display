@@ -30,9 +30,19 @@ a = np.random.randint(0, 10, (3, 4))
 np.count_nonzero(a < 3)
 
 # %%
+# GL_C4F_N3F_V3F
 
-# %%
+# The position of the 8 vertices
 cube_vertices = np.array([
+    [-1, 1, 1],
+    [1, 1, 1],
+    [1, -1, 1],
+    [-1, -1, 1],
+    [-1, 1, -1],
+    [1, 1, -1],
+    [1, -1, -1],
+    [-1, -1, -1],
+
     [-1, 1, 1],
     [1, 1, 1],
     [1, -1, 1],
@@ -43,18 +53,51 @@ cube_vertices = np.array([
     [-1, -1, -1]
 ], dtype=np.float32)
 
-cube_colors = np.array([
+# The normals of the 8 vertices,
+# now they are the same as the positions.
+# ? I do not know if I have to normalize the vectors
+cube_normals = np.array([
+    [-1, 1, 1],
     [1, 1, 1],
-    [1, 1, 1],
-    [1, 1, 1],
-    [1, 1, 1],
-    [1, 1, 1],
-    [1, 1, 1],
-    [1, 1, 1],
-    [1, 1, 1]
+    [1, -1, 1],
+    [-1, -1, 1],
+    [-1, 1, -1],
+    [1, 1, -1],
+    [1, -1, -1],
+    [-1, -1, -1],
 
+    -1 * np.array([-1, 1, 1]),
+    -1 * np.array([1, 1, 1]),
+    -1 * np.array([1, -1, 1]),
+    -1 * np.array([-1, -1, 1]),
+    -1 * np.array([-1, 1, -1]),
+    -1 * np.array([1, 1, -1]),
+    -1 * np.array([1, -1, -1]),
+    -1 * np.array([-1, -1, -1])
+], dtype=np.float32) / np.sqrt(3)
+
+# The colors of the 8 vertices.
+cube_colors = np.array([
+    [0, 0, 0, 1],
+    [0, 0, 1, 1],
+    [0, 1, 0, 1],
+    [0, 1, 1, 1],
+    [1, 0, 0, 1],
+    [1, 0, 1, 1],
+    [1, 1, 0, 1],
+    [1, 1, 1, 1],
+
+    [0, 0, 0, 1],
+    [0, 0, 1, 1],
+    [0, 1, 0, 1],
+    [0, 1, 1, 1],
+    [1, 0, 0, 1],
+    [1, 0, 1, 1],
+    [1, 1, 0, 1],
+    [1, 1, 1, 1]
 ], dtype=np.float32)
 
+# The indices of the 8 vertices
 cube_indices = np.array([
     [0, 3, 2, 1],  # front
     [4, 5, 6, 7],  # back
@@ -62,7 +105,15 @@ cube_indices = np.array([
     [2, 3, 7, 6],  # bottom
     [0, 4, 7, 3],  # left
     [1, 2, 6, 5],  # right
+
+    8 + np.array([0, 3, 2, 1]),  # front
+    8 + np.array([4, 5, 6, 7]),  # back
+    8 + np.array([0, 1, 5, 4]),  # up
+    8 + np.array([2, 3, 7, 6]),  # bottom
+    8 + np.array([0, 4, 7, 3]),  # left
+    8 + np.array([1, 2, 6, 5]),  # right
 ], dtype=np.int32)
+
 
 # %%
 folder = os.path.join(
@@ -93,7 +144,6 @@ print(xrange.shape, yrange.shape, zrange.shape)
 
 # %%
 vertices_list = []
-colors_list = []
 indices_list = []
 idx = 0
 
@@ -103,7 +153,7 @@ for j in tqdm(range(len(xrange))):
                     y - img_array.shape[1] / 2,
                     z - img_array.shape[2] / 2], dtype=np.float32)
     ver = cube_vertices * 0.5 + xyz
-
+    nor = cube_normals
     ind = cube_indices + idx
 
     # value = np.mean(img_array[x-3:x+3, y-3:y+3, z-3:z+3])
@@ -116,19 +166,17 @@ for j in tqdm(range(len(xrange))):
         c = 1
     if c < 0:
         c = 0
-    col = cube_colors * c
+    col = cube_colors.copy()
+    col[:, -1] = col[:, -1] * c
 
-    vertices_list.append(ver)
-    colors_list.append(col)
+    vertices_list.append(np.concatenate([col, nor, ver], axis=1))
     indices_list.append(ind)
 
-    idx += 8
+    idx += cube_vertices.shape[0]
 
 vertices = np.array(vertices_list)
-colors = np.array(colors_list)
 indices = np.array(indices_list)
 
-vertices = np.concatenate([colors, vertices], axis=-1)
 vertices.shape, indices.shape
 # %%
 if __name__ == '__main__':

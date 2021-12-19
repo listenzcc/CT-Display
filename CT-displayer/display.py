@@ -23,7 +23,7 @@ world = World()
 vbo_vertices = vbo.VBO(vertices)
 vbo_vertices.bind()
 
-glInterleavedArrays(GL_C3F_V3F, 0, None)
+glInterleavedArrays(GL_C4F_N3F_V3F, 0, None)
 
 vbo_indices = vbo.VBO(indices, target=GL_ELEMENT_ARRAY_BUFFER)
 vbo_indices.bind()
