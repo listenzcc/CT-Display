@@ -1,4 +1,8 @@
 opengl-amd64-installer
 */__pycache__/*
 */__pycache__
+*/cache
 CT-data
+
+# Ignore the notebooks since they can be too large
+notebooks

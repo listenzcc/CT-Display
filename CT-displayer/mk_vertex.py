@@ -26,10 +26,6 @@ import pandas as pd
 from tqdm.auto import tqdm
 
 # %%
-a = np.random.randint(0, 10, (3, 4))
-np.count_nonzero(a < 3)
-
-# %%
 # GL_C4F_N3F_V3F
 
 # The position of the 8 vertices

@@ -20,6 +20,20 @@ A simple demo is
     -   Start the project.
     -   Write several basic examples of pyOpenGL.
 
--  2021-12-17
+-   2021-12-17
 
-    - Develop Basic pyOpenGL methods.
+    -   Develop Basic pyOpenGL methods.
+
+-   2021-12-19
+
+    -   Render both side of one plane.
+
+-   2021-12-21
+
+    -   Start Dash display.
+
+-   2021-12-22
+
+    -   Built the demo of displaying the 3D volume of CT Image;
+    -   The images are rendered in slice views;
+    -   The images are also calculated to detect the target.
