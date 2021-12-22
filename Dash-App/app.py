@@ -8,12 +8,15 @@ from dash import html
 from dash.dependencies import Input, Output
 
 import numpy as np
-import plotly.express as px
-import plotly.graph_objects as go
-from scipy.ndimage import binary_erosion, binary_dilation
-from scipy.ndimage.filters import maximum_filter
 import pandas as pd
 from tqdm.auto import tqdm
+
+import plotly.express as px
+import plotly.graph_objects as go
+
+from skimage import measure
+from scipy.ndimage import binary_erosion, binary_dilation
+from scipy.ndimage.filters import maximum_filter
 
 from config import CONFIG
 
@@ -49,6 +52,7 @@ def dynamic_dict_report():
 large_dynamic_dict = dict(
     img=get_image(dynamic_dict['subject_folder']),
     figs_slice='Very large figs of plotly',
+    fig_contour='3D image of contour surface'
 )
 
 
@@ -103,11 +107,49 @@ def redraw_images_to_figs():
                                      showlabels=True,
                                      labelfont=dict(size=12, color='white'))))
 
-        fig.update_layout({'dragmode': 'drawclosedpath',
+        fig.update_layout({'title': 'Slice: {}'.format(j),
+                           'dragmode': 'drawclosedpath',
                            'newshape.line.color': 'cyan'})
         figs.append(fig)
+        pass
 
     large_dynamic_dict['figs_slice'] = figs
+
+    # The fig_contour is the 3D view of the contour surface
+    data = []
+
+    # Skull
+    color = 'grey'
+    verts, faces, normals, values = measure.marching_cubes(img,
+                                                           500,
+                                                           step_size=3)
+    x, y, z = verts.T
+    i, j, k = faces.T
+    print(color, [e.shape for e in [x, y, z, i, j, k]])
+    data.append(
+        go.Mesh3d(x=x, y=y, z=z, color=color, opacity=0.2, i=i, j=j, k=k)
+    )
+
+    # Target
+    if np.count_nonzero(img_contour > 50):
+        color = 'purple'
+        verts, faces, normals, values = measure.marching_cubes(img_contour,
+                                                               50,
+                                                               step_size=3)
+        x, y, z = verts.T
+        i, j, k = faces.T
+        print(color, [e.shape for e in [x, y, z, i, j, k]])
+        data.append(
+            go.Mesh3d(x=x, y=y, z=z, color=color, opacity=0.3, i=i, j=j, k=k)
+        )
+
+    layout = dict(scene={'aspectmode': 'data'},
+                  title=dynamic_dict['subject_folder'])
+    fig = go.Figure(data, layout=layout)
+
+    large_dynamic_dict['fig_contour'] = fig
+
+    return 0
 
 
 redraw_images_to_figs()
@@ -212,7 +254,12 @@ control_panel_1 = html.Div(
 view_panel_1 = html.Div(
     id='view-panel-1',
     className='allow-debug',
+    style={'display': 'flex', 'flex-direction': 'row'},
     children=[
+        dcc.Graph(
+            id='graph-2',
+            figure=large_dynamic_dict['fig_contour']
+        ),
         dcc.Graph(
             id='graph-1',
             figure=large_dynamic_dict['figs_slice'][dynamic_dict['subject_current_slice_idx']],
@@ -289,6 +336,7 @@ app.layout = html.Div(
         Output('slider-1', 'max'),
         Output('slider-1', 'value'),
         Output('graph-1', 'figure'),
+        Output('graph-2', 'figure'),
     ],
     [
         Input('CT-raw-data-folder-selector', 'value'),
@@ -325,10 +373,11 @@ def callback_control_panel_1_1(subject_folder, slice_idx):
             dynamic_dict['subject_folder'])
         redraw_images_to_figs()
 
-    fig = large_dynamic_dict['figs_slice'][dynamic_dict['subject_current_slice_idx']]
+    fig1 = large_dynamic_dict['figs_slice'][dynamic_dict['subject_current_slice_idx']]
+    fig2 = large_dynamic_dict['fig_contour']
 
     report = ' | '.join(dynamic_dict_report())
-    return report, marks, min, max, slice_idx, fig
+    return report, marks, min, max, slice_idx, fig1, fig2
 
 
 # %%

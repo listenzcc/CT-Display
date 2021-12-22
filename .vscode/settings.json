@@ -1,7 +1,10 @@
 {
     "cSpell.words": [
         "dtype",
+        "ndimage",
+        "scipy",
         "sitk",
+        "verts",
         "voxel"
     ]
 }
