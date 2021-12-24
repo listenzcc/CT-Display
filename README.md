@@ -37,3 +37,7 @@ A simple demo is
     -   Built the demo of displaying the 3D volume of CT Image;
     -   The images are rendered in slice views;
     -   The images are also calculated to detect the target.
+
+-   2021-12-24
+
+    -   Add 3D contour view.
