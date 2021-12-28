@@ -6,3 +6,6 @@ CT-data
 
 # Ignore the notebooks since they can be too large
 notebooks
+
+# Ignore the .csv files
+py_radiomics/feature.csv
