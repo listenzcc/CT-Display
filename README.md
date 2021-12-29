@@ -41,3 +41,7 @@ A simple demo is
 -   2021-12-24
 
     -   Add 3D contour view.
+
+-   2021-12-28
+
+    -   Add example for features computation using `radiomics` package.
