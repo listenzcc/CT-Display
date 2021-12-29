@@ -18,21 +18,25 @@ from skimage import measure
 from scipy.ndimage import binary_erosion, binary_dilation
 from scipy.ndimage.filters import maximum_filter
 
-from config import CONFIG
+from config import CONFIG, logger
 
-from data_manager import list_subject_folders, dcm_files, get_image
+from data_manager import DCM_Manager
+
 
 # %%
+logger.info('Dash App is initializing.')
+
 # Prepare dynamic variables.
-subject_folders = list_subject_folders()
+dcm = DCM_Manager()
+subject_folders = dcm.list_subject_folders()
 
 # Maintain the dynamic information of the .dcm images
 dynamic_dict = dict(
     raw_data_folder=CONFIG.get('CT_raw_data_folder'),
     subject_folders=subject_folders,
     subject_folder=subject_folders[1],
-    subject_num_dcm_files=len(dcm_files(subject_folders[1])),
-    subject_current_slice_idx=int(len(dcm_files(subject_folders[1])) / 2),
+    subject_num_dcm_files=len(dcm.dcm_files(subject_folders[1])),
+    subject_current_slice_idx=int(len(dcm.dcm_files(subject_folders[1])) / 2),
 )
 
 
@@ -43,14 +47,15 @@ def dynamic_dict_report():
     lines = ['{}: {}'.format(e, dynamic_dict[e])
              for e in dynamic_dict]
 
-    print(pd.DataFrame(dynamic_dict))
+    logger.debug('Current dynamic_dict is {}'.format(
+        pd.DataFrame(dynamic_dict)))
 
     return lines
 
 
 # Large dynamic variables, like 3D image and figs of slices
 large_dynamic_dict = dict(
-    img=get_image(dynamic_dict['subject_folder']),
+    img=dcm.get_image(dynamic_dict['subject_folder']),
     figs_slice='Very large figs of plotly',
     fig_contour='3D image of contour surface'
 )
@@ -125,7 +130,10 @@ def redraw_images_to_figs():
                                                            step_size=3)
     x, y, z = verts.T
     i, j, k = faces.T
-    print(color, [e.shape for e in [x, y, z, i, j, k]])
+
+    logger.debug('Using color: "{}" rendering vertex with shape {}'.format(
+        color, [e.shape for e in [x, y, z, i, j, k]]))
+
     data.append(
         go.Mesh3d(x=x, y=y, z=z, color=color, opacity=0.2, i=i, j=j, k=k)
     )
@@ -138,7 +146,10 @@ def redraw_images_to_figs():
                                                                step_size=3)
         x, y, z = verts.T
         i, j, k = faces.T
-        print(color, [e.shape for e in [x, y, z, i, j, k]])
+
+        logger.debug('Using color: "{}" rendering vertex with shape {}'.format(
+            color, [e.shape for e in [x, y, z, i, j, k]]))
+
         data.append(
             go.Mesh3d(x=x, y=y, z=z, color=color, opacity=0.3, i=i, j=j, k=k)
         )
@@ -153,6 +164,9 @@ def redraw_images_to_figs():
 
 
 redraw_images_to_figs()
+
+
+logger.info('Dash App estalished the requires.')
 
 # %%
 external_stylesheets = [
@@ -326,8 +340,11 @@ app.layout = html.Div(
     ]
 )
 
+logger.info('Dash App estalished the html layout.')
 
 # %% ----------------------------------------------------------------------------
+
+
 @ app.callback(
     [
         Output('report-area-1', 'children'),
@@ -344,18 +361,21 @@ app.layout = html.Div(
     ],
 )
 def callback_control_panel_1_1(subject_folder, slice_idx):
-    print('-------------------------------------------------------------------')
-    # fig = large_dynamic_dict['fig']
+    # --------------------------------------------------------------------------------
     # Which Input is inputted
     cbcontext = [p["prop_id"] for p in dash.callback_context.triggered][0]
-    print(cbcontext)
+    logger.debug(
+        'The callback_control_panel_1_1 receives the event: {}'.format(cbcontext))
 
+    # --------------------------------------------------------------------------------
     # Update the dcm files
-    num_dcm_files = len(dcm_files(subject_folder))
+    num_dcm_files = len(dcm.dcm_files(subject_folder))
     dynamic_dict['subject_folder'] = subject_folder
     dynamic_dict['subject_num_dcm_files'] = num_dcm_files
     dynamic_dict['subject_current_slice_idx'] = slice_idx
+    logger.debug('The dynamic_dict is updated since it is quick.')
 
+    # --------------------------------------------------------------------------------
     # Update the slider-1
     n = 1
     if num_dcm_files > 20:
@@ -364,24 +384,39 @@ def callback_control_panel_1_1(subject_folder, slice_idx):
              for i in range(0, num_dcm_files, n)}
     min = 0
     max = num_dcm_files - 1
+    logger.debug('The marks, min and max parameters for slider-1 is updated.')
 
-    # Auto change the slice_idx if new sub folder is selected
+    # --------------------------------------------------------------------------------
+    # Redraw the figures if the new subject-folder is selected.
+    # Auto change the slice_idx if new subject-folder is selected.
     if cbcontext == 'CT-raw-data-folder-selector.value':
         slice_idx = int(max/2)
         dynamic_dict['subject_current_slice_idx'] = slice_idx
-        large_dynamic_dict['img'] = get_image(
+        large_dynamic_dict['img'] = dcm.get_image(
             dynamic_dict['subject_folder'])
         redraw_images_to_figs()
+        logger.debug(
+            'Figures are redrawn since the new subject-folder:{} is selected'.format(subject_folder))
+        logger.debug(
+            'The slice_idx is automatically updated to {}.'.format(slice_idx))
 
+    # --------------------------------------------------------------------------------
+    # Make the figures and report for update the html components
     fig1 = large_dynamic_dict['figs_slice'][dynamic_dict['subject_current_slice_idx']]
     fig2 = large_dynamic_dict['fig_contour']
-
     report = ' | '.join(dynamic_dict_report())
+    logger.debug('The new figures and report are generated.')
+
     return report, marks, min, max, slice_idx, fig1, fig2
 
 
+logger.info('Dash App estalished the callbacks.')
+
+logger.info('Dash App initialized.')
+
 # %%
 if __name__ == '__main__':
-    app.run_server(debug=False)
+    logger.info('Dash App is starting its serve.')
+    app.run_server(debug=True)
 
 # %%

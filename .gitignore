@@ -9,3 +9,6 @@ notebooks
 
 # Ignore the .csv files
 py_radiomics/feature.csv
+
+# Ignore all the .log files
+*.log
