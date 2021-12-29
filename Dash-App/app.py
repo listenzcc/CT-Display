@@ -343,7 +343,7 @@ control_panel_1 = html.Div(
 
 
 # %% ----------------------------------------------------------------------------
-view_panel_1 = html.Div(
+view_panel_1 = dcc.Loading(html.Div(
     id='view-panel-1',
     className='allow-debug',
     style={'display': 'flex', 'flex-direction': 'row'},
@@ -364,11 +364,11 @@ view_panel_1 = html.Div(
             }
         )
     ]
-)
+), type='circle')
 
 # %% ----------------------------------------------------------------------------
 
-message_panel_1 = html.Div(
+message_panel_1 = dcc.Loading(html.Div(
     id='message-panel-1',
     className='allow-debug',
     children=[
@@ -383,7 +383,7 @@ message_panel_1 = html.Div(
             children='Very Good Table',
         )
     ]
-)
+), type='circle')
 
 # %% ----------------------------------------------------------------------------
 app.layout = html.Div(
@@ -409,6 +409,7 @@ app.layout = html.Div(
             className='allow-debug',
             children=[
                 view_panel_1,
+                # message_panel_1,
             ]
         ),
         html.Div(

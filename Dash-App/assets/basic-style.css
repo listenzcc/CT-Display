@@ -5,6 +5,11 @@ div#main-window {
     overflow: scroll;
 }
 
+div#report-area-2 {
+    max-height: 500px;
+    overflow-y: scroll;
+}
+
 #app-title {
     color: darkgreen;
     margin: 10px;
