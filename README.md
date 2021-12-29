@@ -44,4 +44,7 @@ A simple demo is
 
 -   2021-12-28
 
-    -   Add example for features computation using `radiomics` package.
+    -   Add example for features computation using `radiomics` package;
+    -   Develop new DCM files manager;
+    -   Apply logging system;
+    -   Develop feature computing functional.

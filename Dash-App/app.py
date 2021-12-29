@@ -5,6 +5,7 @@
 import dash
 from dash import dcc
 from dash import html
+from dash import dash_table
 from dash.dependencies import Input, Output
 
 import numpy as np
@@ -13,6 +14,10 @@ from tqdm.auto import tqdm
 
 import plotly.express as px
 import plotly.graph_objects as go
+
+import SimpleITK as sitk
+import radiomics
+from radiomics import featureextractor, getTestCase
 
 from skimage import measure
 from scipy.ndimage import binary_erosion, binary_dilation
@@ -56,25 +61,57 @@ def dynamic_dict_report():
 # Large dynamic variables, like 3D image and figs of slices
 large_dynamic_dict = dict(
     img=dcm.get_image(dynamic_dict['subject_folder']),
-    figs_slice='Very large figs of plotly',
-    fig_contour='3D image of contour surface'
+    img_contour='The contour version of the img, Updated by redraw_imgs_to_figs',
+    figs_slice='Very large figs of plotly, Updated by redraw_imgs_to_figs',
+    fig_contour='3D image of contour surface, Updated by redraw_imgs_to_figs',
+    table_obj='The table object, Updated by redraw_imgs_to_figs'
 )
 
 
-def redraw_images_to_figs():
-    '''
-    Update the [figs] of the large_dynamic_dict,
-    use it for every time its 'img' changes.
+def compute_features():
+    ''' Compute the features using the current data '''
+    subject_folder = dynamic_dict['subject_folder']
+    img_contour = large_dynamic_dict['img_contour'].copy()
+    img_contour[img_contour > 0] = 1
 
-    The image is properly calculated.
-    '''
+    # Return empty if can NOT find valid regions
+    if np.count_nonzero(img_contour) == 0:
+        df = pd.DataFrame([{'subject_folder': subject_folder}])
+        logger.debug('No valid regions found.')
+        return df
 
-    range_color = (-1000, 2000)
+    logger.debug('The img_contour contains {} nonzero pixels'.format(
+        np.count_nonzero(img_contour)))
 
-    # Read the latest image and strip its negative values.
-    img = large_dynamic_dict['img']
-    img[img < 0] = 0
+    # Get image as sitk format
+    reader = sitk.ImageSeriesReader()
+    names = sitk.ImageSeriesReader().GetGDCMSeriesFileNames(dcm.current_data_folder)
+    reader.SetFileNames(names)
+    image = reader.Execute()
+    logger.debug(
+        'Got image (sitk) with the shape of {}.'.format(image.GetSize()))
 
+    # Compute features
+    img_mask = sitk.GetImageFromArray(img_contour)
+    rfe = featureextractor.RadiomicsFeatureExtractor()
+    mask = radiomics.imageoperations.getMask(img_mask)
+    rfe.loadImage(image, mask)
+    logger.debug('The featureextractor:"{}" loaded image and mask'.format(rfe))
+
+    features = rfe.computeFeatures(image, mask, 'original')
+    lst = []
+    for name in tqdm(features, 'Collecting Features'):
+        lst.append((name, features[name]))
+
+    df = pd.DataFrame(lst, columns=['name', 'value'])
+    df['subject_folder'] = subject_folder
+
+    logger.debug('Computed features for {} entries.'.format(len(df)))
+    return df
+
+
+def compute_contour(img):
+    ''' Process the raw img to compute img_contour '''
     # Remove the skull for calculation,
     # using the maximum_filter method.
     kernel = np.ones((5, 5, 5))
@@ -88,11 +125,32 @@ def redraw_images_to_figs():
     mask = binary_dilation(mask, kernel)
     img_contour[mask < 1] = 0
 
+    return img_contour
+
+
+def redraw_images_to_figs():
+    '''
+    Update the [figs] of the large_dynamic_dict,
+    use it for every time its 'img' changes.
+
+    The image is properly calculated.
+    '''
+
+    # --------------------------------------------------------------------------------
+    # Read the latest image and strip its negative values.
+    img = large_dynamic_dict['img']
+    img[img < 0] = 0
+
+    img_contour = compute_contour(img)
+    large_dynamic_dict['img_contour'] = img_contour
+    logger.debug('The large_dynamic_dict.img_contour is updated.')
+
+    # --------------------------------------------------------------------------------
     # The figs is a list of slice views
     figs = []
+    range_color = (-1000, 2000)
     for j in tqdm(range(dynamic_dict['subject_num_dcm_files']), 'Redraw images'):
-        # Two-layers are generated.
-
+        # Two-layers will be generated.
         # The background is the gray-scaled brain slice view.
         fig = px.imshow(img[j],
                         range_color=range_color,
@@ -119,7 +177,9 @@ def redraw_images_to_figs():
         pass
 
     large_dynamic_dict['figs_slice'] = figs
+    logger.debug('The large_dynamic_dict.figs_slice is updated.')
 
+    # --------------------------------------------------------------------------------
     # The fig_contour is the 3D view of the contour surface
     data = []
 
@@ -159,6 +219,20 @@ def redraw_images_to_figs():
     fig = go.Figure(data, layout=layout)
 
     large_dynamic_dict['fig_contour'] = fig
+    logger.debug('The large_dynamic_dict.fig_contour is updated.')
+
+    # --------------------------------------------------------------------------------
+    df = compute_features()
+    columns = [{"name": i, "id": i} for i in df.columns]
+    data = df.to_dict('records')
+
+    table_obj = dash_table.DataTable(
+        columns=columns,
+        data=data
+    )
+
+    large_dynamic_dict['table_obj'] = table_obj
+    logger.debug('The large_dynamic_dict.table_obj is updated')
 
     return 0
 
@@ -241,9 +315,9 @@ control_panel_1 = html.Div(
                             value=['Tar', 'Bac'],
                         ),
 
-                        html.Br(),
-                        html.Label('Text Input'),
-                        dcc.Input(value='Text', type='text'),
+                        # html.Br(),
+                        # html.Label('Text Input'),
+                        # dcc.Input(value='Text', type='text'),
 
                         html.Br(),
                         html.Label('Slider'),
@@ -255,7 +329,11 @@ control_panel_1 = html.Div(
                                    for i in range(0, dynamic_dict['subject_num_dcm_files'])},
                             value=dynamic_dict['subject_current_slice_idx'],
                             updatemode='drag'
-                        )
+                        ),
+
+                        html.Br(),
+                        html.Label('Feature'),
+                        html.Button('Compute', id='button-1', n_clicks=0),
                     ]
                 )
             ]
@@ -289,6 +367,7 @@ view_panel_1 = html.Div(
 )
 
 # %% ----------------------------------------------------------------------------
+
 message_panel_1 = html.Div(
     id='message-panel-1',
     className='allow-debug',
@@ -301,7 +380,7 @@ message_panel_1 = html.Div(
         html.Div(
             id='report-area-2',
             className='allow-debug',
-            children='Report Area 2'
+            children='Very Good Table',
         )
     ]
 )
@@ -335,7 +414,9 @@ app.layout = html.Div(
         html.Div(
             id='message-div',
             className='allow-debug',
-            children=[message_panel_1]
+            children=[
+                message_panel_1,
+            ]
         ),
     ]
 )
@@ -343,6 +424,29 @@ app.layout = html.Div(
 logger.info('Dash App estalished the html layout.')
 
 # %% ----------------------------------------------------------------------------
+
+
+# @ app.callback(
+#     Output('report-area-2', 'children'),
+#     Input('button-1', 'n_clicks'),
+# )
+# def callback_button_1_1(n_clicks):
+#     cbcontext = [p["prop_id"] for p in dash.callback_context.triggered][0]
+#     logger.debug(
+#         'The callback_button_1_1 receives the event: {}'.format(cbcontext))
+
+#     df = compute_features()
+#     columns = [{"name": i, "id": i} for i in df.columns]
+#     data = df.to_dict('records')
+#     print(columns, data)
+
+#     table_obj = dash_table.DataTable(
+#         id='table-1',
+#         columns=columns,
+#         data=data
+#     )
+
+#     return table_obj,
 
 
 @ app.callback(
@@ -354,6 +458,7 @@ logger.info('Dash App estalished the html layout.')
         Output('slider-1', 'value'),
         Output('graph-1', 'figure'),
         Output('graph-2', 'figure'),
+        Output('report-area-2', 'children'),
     ],
     [
         Input('CT-raw-data-folder-selector', 'value'),
@@ -405,9 +510,10 @@ def callback_control_panel_1_1(subject_folder, slice_idx):
     fig1 = large_dynamic_dict['figs_slice'][dynamic_dict['subject_current_slice_idx']]
     fig2 = large_dynamic_dict['fig_contour']
     report = ' | '.join(dynamic_dict_report())
-    logger.debug('The new figures and report are generated.')
+    table_obj = large_dynamic_dict['table_obj']
+    logger.debug('The new figures and report are generated and returned.')
 
-    return report, marks, min, max, slice_idx, fig1, fig2
+    return report, marks, min, max, slice_idx, fig1, fig2, table_obj
 
 
 logger.info('Dash App estalished the callbacks.')
