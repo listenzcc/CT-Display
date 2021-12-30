@@ -145,6 +145,11 @@ def redraw_images_to_figs():
     large_dynamic_dict['img_contour'] = img_contour
     logger.debug('The large_dynamic_dict.img_contour is updated.')
 
+    # Save the img and img_contour for debug
+    # with open('imgs.bin', 'wb') as f:
+    #     np.save(f, img)
+    #     np.save(f, img_contour)
+
     # --------------------------------------------------------------------------------
     # The figs is a list of slice views
     figs = []
