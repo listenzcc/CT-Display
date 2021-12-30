@@ -48,3 +48,7 @@ A simple demo is
     -   Develop new DCM files manager;
     -   Apply logging system;
     -   Develop feature computing functional.
+
+-   2021-12-30
+
+    -   Add faster-sliding function. It is still not perfect.
