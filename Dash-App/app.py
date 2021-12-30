@@ -348,28 +348,32 @@ control_panel_1 = html.Div(
 
 
 # %% ----------------------------------------------------------------------------
-view_panel_1 = dcc.Loading(html.Div(
+view_panel_1 = html.Div(
     id='view-panel-1',
     className='allow-debug',
     style={'display': 'flex', 'flex-direction': 'row'},
     children=[
-        dcc.Graph(
-            id='graph-2',
-            figure=large_dynamic_dict['fig_contour']
-        ),
-        dcc.Graph(
-            id='graph-1',
-            figure=large_dynamic_dict['figs_slice'][dynamic_dict['subject_current_slice_idx']],
-            config={
-                "modeBarButtonsToAdd": [
-                    "drawrect",
-                    "drawopenpath",
-                    "eraseshape",
-                ]
-            }
-        )
+        dcc.Loading(html.Div(
+            className='allow-debug',
+            children=[dcc.Graph(
+                id='graph-2',
+                figure=large_dynamic_dict['fig_contour']
+            )])),
+        html.Div(
+            className='allow-debug',
+            children=dcc.Graph(
+                id='graph-1',
+                figure=large_dynamic_dict['figs_slice'][dynamic_dict['subject_current_slice_idx']],
+                config={
+                    "modeBarButtonsToAdd": [
+                        "drawrect",
+                        "drawopenpath",
+                        "eraseshape",
+                    ]
+                }
+            ))
     ]
-), type='circle')
+)
 
 # %% ----------------------------------------------------------------------------
 
@@ -454,24 +458,36 @@ logger.info('Dash App estalished the html layout.')
 
 #     return table_obj,
 
+@ app.callback(
+    [Output('graph-1', 'figure')],
+    [Input('slider-1', 'value')],
+    prevent_initial_call=True
+)
+def callback_slider_1_1(slice_idx):
+    # Handle the slider-1's sliding event
+    cbcontext = [p["prop_id"] for p in dash.callback_context.triggered][0]
+    logger.debug(
+        'The callback_slider_1_1 receives the event: {}'.format(cbcontext))
+
+    dynamic_dict['subject_current_slice_idx'] = slice_idx
+    fig = large_dynamic_dict['figs_slice'][dynamic_dict['subject_current_slice_idx']]
+    return fig,
+
 
 @ app.callback(
     [
-        Output('report-area-1', 'children'),
         Output('slider-1', 'marks'),
         Output('slider-1', 'min'),
         Output('slider-1', 'max'),
         Output('slider-1', 'value'),
-        Output('graph-1', 'figure'),
         Output('graph-2', 'figure'),
         Output('report-area-2', 'children'),
     ],
     [
         Input('CT-raw-data-folder-selector', 'value'),
-        Input('slider-1', 'value')
     ],
 )
-def callback_control_panel_1_1(subject_folder, slice_idx):
+def callback_control_panel_1_1(subject_folder):
     # --------------------------------------------------------------------------------
     # Which Input is inputted
     cbcontext = [p["prop_id"] for p in dash.callback_context.triggered][0]
@@ -483,7 +499,7 @@ def callback_control_panel_1_1(subject_folder, slice_idx):
     num_dcm_files = len(dcm.dcm_files(subject_folder))
     dynamic_dict['subject_folder'] = subject_folder
     dynamic_dict['subject_num_dcm_files'] = num_dcm_files
-    dynamic_dict['subject_current_slice_idx'] = slice_idx
+    # dynamic_dict['subject_current_slice_idx'] = slice_idx
     logger.debug('The dynamic_dict is updated since it is quick.')
 
     # --------------------------------------------------------------------------------
@@ -500,8 +516,8 @@ def callback_control_panel_1_1(subject_folder, slice_idx):
     # --------------------------------------------------------------------------------
     # Redraw the figures if the new subject-folder is selected.
     # Auto change the slice_idx if new subject-folder is selected.
+    slice_idx = int(max/2)
     if cbcontext == 'CT-raw-data-folder-selector.value':
-        slice_idx = int(max/2)
         dynamic_dict['subject_current_slice_idx'] = slice_idx
         large_dynamic_dict['img'] = dcm.get_image(
             dynamic_dict['subject_folder'])
@@ -519,7 +535,7 @@ def callback_control_panel_1_1(subject_folder, slice_idx):
     table_obj = large_dynamic_dict['table_obj']
     logger.debug('The new figures and report are generated and returned.')
 
-    return report, marks, min, max, slice_idx, fig1, fig2, table_obj
+    return marks, min, max, slice_idx, fig2, table_obj
 
 
 logger.info('Dash App estalished the callbacks.')
