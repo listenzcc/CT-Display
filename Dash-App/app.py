@@ -10,6 +10,7 @@ from dash.dependencies import Input, Output
 
 import numpy as np
 import pandas as pd
+from sympy import rad
 from tqdm.auto import tqdm
 
 import plotly.express as px
@@ -84,10 +85,11 @@ def compute_features():
         np.count_nonzero(img_contour)))
 
     # Get image as sitk format
-    reader = sitk.ImageSeriesReader()
-    names = sitk.ImageSeriesReader().GetGDCMSeriesFileNames(dcm.current_data_folder)
-    reader.SetFileNames(names)
-    image = reader.Execute()
+    # reader = sitk.ImageSeriesReader()
+    # names = sitk.ImageSeriesReader().GetGDCMSeriesFileNames(dcm.current_data_folder)
+    # reader.SetFileNames(names)
+    # image = reader.Execute()
+    image = sitk.GetImageFromArray(large_dynamic_dict['img'].copy())
     logger.debug(
         'Got image (sitk) with the shape of {}.'.format(image.GetSize()))
 
@@ -95,13 +97,84 @@ def compute_features():
     img_mask = sitk.GetImageFromArray(img_contour)
     rfe = featureextractor.RadiomicsFeatureExtractor()
     mask = radiomics.imageoperations.getMask(img_mask)
+    print('----\n', image, '----\n', mask)
+
+    # Compute Wavelet Image [featureImage, name, {}] x 8 (wavelet-LLH, LLL, ...)
+    waveletImages = [e
+                     for e in radiomics.imageoperations.getWaveletImage(image, mask)]
+    print('--------', len(waveletImages), waveletImages[0])
+
+    # Compute Exponential Image [image, name, {}] x 1 (exponential)
+    exponentialImages = [e
+                         for e in radiomics.imageoperations.getExponentialImage(image, mask)]
+    print('--------', len(exponentialImages), exponentialImages[0])
+
+    # Compute Squareroot Image [image, name, {}] x 1 (squareroot)
+    squarerootImages = [e
+                        for e in radiomics.imageoperations.getSquareRootImage(image, mask)]
+    print('--------', len(squarerootImages), squarerootImages[0])
+
     rfe.loadImage(image, mask)
     logger.debug('The featureextractor:"{}" loaded image and mask'.format(rfe))
 
-    features = rfe.computeFeatures(image, mask, 'original')
+    rfe.enableImageTypeByName('Wavelet', enabled=True)
+    logger.debug('RFE Features are {}'.format(rfe.featureClassNames))
     lst = []
+
+    # Features of original x 6
+    rfe.disableAllFeatures()
+    rfe.enableFeaturesByName(**dict(
+        shape=['LeastAxisLength', 'MinorAxisLength',
+               'Maximum2DDiameterColumn'],  # 1, 7, 8 # ??? Not computed
+        glszm=['ZoneEntropy'],  # 2
+        firstorder=['Median'],  # 17
+        # glcm=['Entropy'], # ??? Not work
+    ))
+
+    features = rfe.computeFeatures(image, mask, 'original')
     for name in tqdm(features, 'Collecting Features'):
         lst.append((name, features[name]))
+
+    bbox, _ = radiomics.imageoperations.checkMask(image, mask)
+    features = rfe.computeShape(image, mask, bbox)
+    print(features)
+
+    # Features of exponential x 1
+    rfe.disableAllFeatures()
+    rfe.enableFeaturesByName(**dict(
+        glrlm=['RunEntropy'],  # 5
+    ))
+
+    features = rfe.computeFeatures(
+        exponentialImages[0][0], mask, exponentialImages[0][1])
+    for name in tqdm(features, 'Collecting Features'):
+        lst.append((name, features[name]))
+
+    # Features of squareroot x 1
+    rfe.disableAllFeatures()
+    rfe.enableFeaturesByName(**dict(
+        firstorder=['Median'],  # 9
+    ))
+
+    features = rfe.computeFeatures(
+        squarerootImages[0][0], mask, squarerootImages[0][1])
+    for name in tqdm(features, 'Collecting Features'):
+        lst.append((name, features[name]))
+
+    # Features of wavelet x ???
+    rfe.disableAllFeatures()
+    rfe.enableFeaturesByName(**dict(
+        glszm=['ZoneEntropy', 'GrayLevelNonUniformity', 'ZoneVariance',
+               'ZoneEntropy', 'SizeZoneNonUniformity'],  # 3, 4, 12, 14, 15, 18
+        glrlm=['LongRunEmphasis'],  # 6
+        firstorder=['Median', 'InterquartileRange'],  # 13, 17
+
+    ))
+
+    for e in waveletImages:
+        features = rfe.computeFeatures(e[0], mask, e[1])
+        for name in tqdm(features, e[1]):
+            lst.append((name, features[name]))
 
     df = pd.DataFrame(lst, columns=['name', 'value'])
     df['subject_folder'] = subject_folder
@@ -338,7 +411,8 @@ control_panel_1 = html.Div(
 
                         html.Br(),
                         html.Label('Feature'),
-                        html.Button('Compute', id='button-1', n_clicks=0),
+                        html.Button('Compute', name='whatIsName',
+                                    id='button-1', n_clicks=0),
                     ]
                 )
             ]
