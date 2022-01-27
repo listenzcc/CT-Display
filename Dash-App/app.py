@@ -85,10 +85,7 @@ def compute_features():
         np.count_nonzero(img_contour)))
 
     # Get image as sitk format
-    # reader = sitk.ImageSeriesReader()
-    # names = sitk.ImageSeriesReader().GetGDCMSeriesFileNames(dcm.current_data_folder)
-    # reader.SetFileNames(names)
-    # image = reader.Execute()
+    # Use 'sitk.GetImageFromArray' to make image and img_mask to make sure they are in the same geometry.
     image = sitk.GetImageFromArray(large_dynamic_dict['img'].copy())
     logger.debug(
         'Got image (sitk) with the shape of {}.'.format(image.GetSize()))
@@ -97,7 +94,10 @@ def compute_features():
     img_mask = sitk.GetImageFromArray(img_contour)
     rfe = featureextractor.RadiomicsFeatureExtractor()
     mask = radiomics.imageoperations.getMask(img_mask)
-    print('----\n', image, '----\n', mask)
+    # print('----\n', image, '----\n', mask)
+
+    # Normalize
+    image = radiomics.imageoperations.normalizeImage(image)
 
     # Compute Wavelet Image [featureImage, name, {}] x 8 (wavelet-LLH, LLL, ...)
     waveletImages = [e
@@ -125,10 +125,10 @@ def compute_features():
     rfe.disableAllFeatures()
     rfe.enableFeaturesByName(**dict(
         shape=['LeastAxisLength', 'MinorAxisLength',
-               'Maximum2DDiameterColumn'],  # 1, 7, 8 # ??? Not computed
+               'Maximum2DDiameterColumn'],  # 1, 7, 8 # Will be computed by rfe.computeShape rather than rfe.computeFeatures
         glszm=['ZoneEntropy'],  # 2
         firstorder=['Median'],  # 17
-        # glcm=['Entropy'], # ??? Not work
+        glcm=['DifferenceEntropy'],  # ??? Alternative version of Entropy
     ))
 
     features = rfe.computeFeatures(image, mask, 'original')
@@ -137,7 +137,8 @@ def compute_features():
 
     bbox, _ = radiomics.imageoperations.checkMask(image, mask)
     features = rfe.computeShape(image, mask, bbox)
-    print(features)
+    for name in tqdm(features, 'Collecting Features'):
+        lst.append((name, features[name]))
 
     # Features of exponential x 1
     rfe.disableAllFeatures()
