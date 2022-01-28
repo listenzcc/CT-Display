@@ -24,6 +24,8 @@ from skimage import measure
 from scipy.ndimage import binary_erosion, binary_dilation
 from scipy.ndimage.filters import maximum_filter
 
+from pathlib import Path
+
 from config import CONFIG, logger
 
 from data_manager import DCM_Manager
@@ -65,19 +67,31 @@ large_dynamic_dict = dict(
     img_contour='The contour version of the img, Updated by redraw_imgs_to_figs',
     figs_slice='Very large figs of plotly, Updated by redraw_imgs_to_figs',
     fig_contour='3D image of contour surface, Updated by redraw_imgs_to_figs',
-    table_obj='The table object, Updated by redraw_imgs_to_figs'
+    table_obj='The table object, Updated by redraw_imgs_to_figs',
+    weights_table=pd.read_csv(
+        Path(dynamic_dict['raw_data_folder'], '__features__.csv'))
 )
 
 
 def compute_features():
     ''' Compute the features using the current data '''
     subject_folder = dynamic_dict['subject_folder']
+
+    df_path = Path(dynamic_dict['raw_data_folder'], f'{subject_folder}.csv')
+
+    if df_path.is_file():
+        logger.debug('Found existing features: {}'.format(df_path))
+        df = pd.read_csv(df_path.as_posix())
+        logger.debug('Read features for {} entries.'.format(len(df)))
+        return df
+
     img_contour = large_dynamic_dict['img_contour'].copy()
     img_contour[img_contour > 0] = 1
 
     # Return empty if can NOT find valid regions
     if np.count_nonzero(img_contour) == 0:
-        df = pd.DataFrame([{'subject_folder': subject_folder}])
+        df = pd.DataFrame(
+            [{'subject_folder': subject_folder, 'name': 'N.A.', 'value': 0}])
         logger.debug('No valid regions found.')
         return df
 
@@ -125,6 +139,7 @@ def compute_features():
     rfe.disableAllFeatures()
     rfe.enableFeaturesByName(**dict(
         shape=['LeastAxisLength', 'MinorAxisLength',
+               'Maximum3DDiameter',
                'Maximum2DDiameterColumn'],  # 1, 7, 8 # Will be computed by rfe.computeShape rather than rfe.computeFeatures
         glszm=['ZoneEntropy'],  # 2
         firstorder=['Median'],  # 17
@@ -181,6 +196,10 @@ def compute_features():
     df['subject_folder'] = subject_folder
 
     logger.debug('Computed features for {} entries.'.format(len(df)))
+
+    df.to_csv(df_path.as_posix())
+    logger.debug('Saved features to {}'.format(df_path))
+
     return df
 
 
@@ -249,7 +268,7 @@ def redraw_images_to_figs():
                                      showlabels=True,
                                      labelfont=dict(size=12, color='white'))))
 
-        fig.update_layout({'title': 'Slice: {}'.format(j),
+        fig.update_layout({'title': '{} Slice: {}'.format(dynamic_dict['subject_folder'], j),
                            'dragmode': 'drawclosedpath',
                            'newshape.line.color': 'cyan'})
         figs.append(fig)
@@ -302,6 +321,8 @@ def redraw_images_to_figs():
 
     # --------------------------------------------------------------------------------
     df = compute_features()
+    weights_table = large_dynamic_dict['weights_table']
+
     columns = [{"name": i, "id": i} for i in df.columns]
     data = df.to_dict('records')
 
@@ -312,6 +333,19 @@ def redraw_images_to_figs():
 
     large_dynamic_dict['table_obj'] = table_obj
     logger.debug('The large_dynamic_dict.table_obj is updated')
+
+    # Compute determine_value
+    df_joint = df.set_index('name').join(weights_table.set_index('combine'),
+                                         how='inner')
+    logger.debug('Found valid weights of {}'.format(len(df_joint)))
+    logger.debug('They were {}'.format([e for e in df_joint.index]))
+
+    determine_value = np.sum([e
+                              for e in df_joint['value'] * df_joint['weight']])
+    logger.debug(
+        'The determine_value is computed as {}'.format(determine_value))
+
+    large_dynamic_dict['determine_value'] = determine_value
 
     return 0
 
@@ -411,9 +445,8 @@ control_panel_1 = html.Div(
                         ),
 
                         html.Br(),
-                        html.Label('Feature'),
-                        html.Button('Compute', name='whatIsName',
-                                    id='button-1', n_clicks=0),
+                        html.Label('DetermineValue'),
+                        html.Label('----', id='determineValueLabel')
                     ]
                 )
             ]
@@ -439,13 +472,13 @@ view_panel_1 = html.Div(
             children=dcc.Graph(
                 id='graph-1',
                 figure=large_dynamic_dict['figs_slice'][dynamic_dict['subject_current_slice_idx']],
-                config={
-                    "modeBarButtonsToAdd": [
-                        "drawrect",
-                        "drawopenpath",
-                        "eraseshape",
-                    ]
-                }
+                # config={
+                #     "modeBarButtonsToAdd": [
+                #         "drawrect",
+                #         "drawopenpath",
+                #         "eraseshape",
+                #     ]
+                # }
             ))
     ]
 )
@@ -557,6 +590,7 @@ def callback_slider_1_1(slice_idx):
         Output('slider-1', 'value'),
         Output('graph-2', 'figure'),
         Output('report-area-2', 'children'),
+        Output('determineValueLabel', 'children'),
     ],
     [
         Input('CT-raw-data-folder-selector', 'value'),
@@ -608,9 +642,10 @@ def callback_control_panel_1_1(subject_folder):
     fig2 = large_dynamic_dict['fig_contour']
     report = ' | '.join(dynamic_dict_report())
     table_obj = large_dynamic_dict['table_obj']
+    determine_value = large_dynamic_dict.get('determine_value', 'N.A.')
     logger.debug('The new figures and report are generated and returned.')
 
-    return marks, min, max, slice_idx, fig2, table_obj
+    return marks, min, max, slice_idx, fig2, table_obj, determine_value
 
 
 logger.info('Dash App estalished the callbacks.')
