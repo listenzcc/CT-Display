@@ -54,6 +54,7 @@ A simple demo is
     -   Add faster-sliding function. It is still not perfect.
 
 -   2022-01-28
+
     -   In the recent commits, I refine the analysis pipeline of radiomics;
     -   The features will be computed and their weights have been saved into the `__features__.csv` file;
     -   The file is saved in the CT-data folder which I do not want to public;
@@ -61,3 +62,7 @@ A simple demo is
         and the features will be saved into the same folder,
         since the computation is **really** slow;
     -   The determine value will be computed by the projection of the features and their weights.
+
+-   2022-02-15
+    -   New data arrived, so the offset of the two categories are computed.
+    -   And the distributions of the 18 features are known, either.
